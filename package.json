@@ -1,0 +1,23 @@
+{
+  "name": "test-puppetter-project",
+  "version": "1.0.0",
+  "description": "Test project to try aspects of the puppetter API before using in production",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nicolasjhampton/test-puppetter-project.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/nicolasjhampton/test-puppetter-project/issues"
+  },
+  "homepage": "https://github.com/nicolasjhampton/test-puppetter-project#readme",
+  "dependencies": {
+    "puppeteer": "^1.10.0"
+  }
+}
