@@ -1,94 +1,28 @@
-var TestCase, page;
-
-TestCase = (function() {
-
-  TestCase.name = 'TestCase';
-
-  function TestCase(page, index) {
-    var result;
-    this.page = page;
-    this.index = index;
-    result = this.run();
-    if (result === true) {
-      this.pass();
-    } else {
-      this.fail(result);
-    }
-  }
-
-  TestCase.prototype.pass = function() {
-    return console.log("[[CCENGINE <%= execution_id %> pass:" + this.index + "]]");
-  };
-
-  TestCase.prototype.fail = function(hint) {
-    return console.log("[[CCENGINE <%= execution_id %> fail:" + this.index + ":" + hint + "]]");
-  };
-
-  TestCase.prototype.source = "./hidden-index.html"  // <%= file_contents.to_json %>; // 
-
-  TestCase.prototype.ast = function(source_string) {
-    var esprima = require("./esprima.js");  // "<%= PhantomjsRunner::ESPRIMA_INCLUDE_PATH %>"
-    return esprima.parse(source_string);
-  }
-
-  // TestCase.prototype.injectJquery = function() {
-  //   this.page.injectJs("<%= PhantomjsRunner::JQUERY_INCLUDE_PATH %>");
-  // };
-
-  return TestCase;
-
-})();
-
-var _fs = require('fs');
-var html = _fs.readFileSync("./hidden-index.html", {encoding: 'utf-8'});
-
+const {promisify} = require('util');
+const _fs = require('fs');
+const readFile = promisify(_fs.readFile);
 var puppeteer = require("puppeteer-core");
 
-var first_task = `
-TestCase.prototype.run = function() {
-  var fs = require('fs');
-  var file = fs.openSync('./app.js', 'r');
-  var content = fs.readFileSync(file);
-  var ast = this.ast(content);
-  //file.close();
+const chromium = JSON.parse(process.env.CODE_CHALLENGE_CHROMIUM_CONFIG);
+
+(async function() {
+  const browser = await puppeteer.launch(chromium);
+  const page_init = await browser.newPage();
+  const html = await readFile("./hidden-index.html", {encoding: 'utf-8'});
+  const response = await page_init.goto("data:text/html," + html)
   
-  var $ = require('./astquery.js');
-  var $ast = $(ast);
-  
-  function validator(value) {
-    return value && value.is("MemberExpression") && value.is({name: "section", property: "children"});
-  }
-  var variableDec = $ast.hasVariableDeclaration({name: "paragraphs", value: validator}) || $ast.hasAssignmentExpression({left: "paragraphs", right: validator});
-  if(variableDec) {
-    return true;
-  } else {
-    return "You didn't use the children property on the section element";
-  }
-};
-`;
-
-function evaluate(obj, page, task){
-  return Function('"use strict";return (function(TestCase, page, require){' + obj + '\nnew TestCase(page,' + task + ');})')()(
-      TestCase, page, require
-  );
-}
-
-
-puppeteer.launch({ 
-  executablePath: '/usr/local/bin/chrome',
-  args: [
-    "--no-sandbox"
-  ]
-}).then(function(browser) {
-  browser.newPage().then(function(page_init) {
-    return page_init.goto("data:text/html," + html).then(function(response) {
-      if(response.ok()) {
-
-        evaluate(first_task, page, 1)
-        
+  if(response.ok()) {
+    const up_to = parseInt(process.env.CODE_CHALLENGE_TASK_NUMBER, 10);
+    for(let i = 1; i <= up_to; i++) {
+      let task = require(`./task_${i}.js`);
+      let result = await task(page_init, readFile);
+      if (result === true) {
+        console.log(`[[CCENGINE ${process.env.CODE_CHALLENGE_EXECUTION_ID} pass: ${i} ]]`);
+      } else {
+        console.log(`[[CCENGINE ${process.env.CODE_CHALLENGE_EXECUTION_ID} fail: ${i} : ${result} ]]`);
       }
-    });
-  }).then(function() {
-    browser.close();
-  });
-});
+    }
+  }
+  
+  browser.close();
+})()
