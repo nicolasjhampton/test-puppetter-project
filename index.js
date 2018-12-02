@@ -11,7 +11,9 @@ const chromium = JSON.parse(process.env.CODE_CHALLENGE_CHROMIUM_CONFIG);
   const html = await readFile("./hidden-index.html", {encoding: 'utf-8'});
   const response = await page_init.goto("data:text/html," + html)
   
+  
   if(response.ok()) {
+  
     const up_to = parseInt(process.env.CODE_CHALLENGE_TASK_NUMBER, 10);
     for(let i = 1; i <= up_to; i++) {
       let task = require(`./task_${i}.js`);
