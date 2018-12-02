@@ -31,9 +31,9 @@ TestCase = (function() {
     return esprima.parse(source_string);
   }
 
-  TestCase.prototype.injectJquery = function() {
-    this.page.injectJs("<%= PhantomjsRunner::JQUERY_INCLUDE_PATH %>");
-  };
+  // TestCase.prototype.injectJquery = function() {
+  //   this.page.injectJs("<%= PhantomjsRunner::JQUERY_INCLUDE_PATH %>");
+  // };
 
   return TestCase;
 
@@ -42,36 +42,50 @@ TestCase = (function() {
 var _fs = require('fs');
 var html = _fs.readFileSync("./hidden-index.html", {encoding: 'utf-8'});
 
+var puppeteer = require("puppeteer-core");
 
-var puppeteer = require("puppeteer");
+var first_task = `
+TestCase.prototype.run = function() {
+  var fs = require('fs');
+  var file = fs.openSync('./app.js', 'r');
+  var content = fs.readFileSync(file);
+  var ast = this.ast(content);
+  //file.close();
+  
+  var $ = require('./astquery.js');
+  var $ast = $(ast);
+  
+  function validator(value) {
+    return value && value.is("MemberExpression") && value.is({name: "section", property: "children"});
+  }
+  var variableDec = $ast.hasVariableDeclaration({name: "paragraphs", value: validator}) || $ast.hasAssignmentExpression({left: "paragraphs", right: validator});
+  if(variableDec) {
+    return true;
+  } else {
+    return "You didn't use the children property on the section element";
+  }
+};
+`;
 
-puppeteer.launch().then(function(browser) {
+function evaluate(obj, page, task){
+  return Function('"use strict";return (function(TestCase, page, require){' + obj + '\nnew TestCase(page,' + task + ');})')()(
+      TestCase, page, require
+  );
+}
+
+
+puppeteer.launch({ 
+  executablePath: '/usr/local/bin/chrome',
+  args: [
+    "--no-sandbox"
+  ]
+}).then(function(browser) {
   browser.newPage().then(function(page_init) {
     return page_init.goto("data:text/html," + html).then(function(response) {
       if(response.ok()) {
 
-        TestCase.prototype.run = function() {
-          var fs = require('fs');
-          var file = fs.openSync('./app.js', 'r');
-          var content = fs.readFileSync(file);
-          var ast = this.ast(content);
-          //file.close();
-          
-          var $ = require('./astquery.js');
-          var $ast = $(ast);
-          
-          function validator(value) {
-            return value && value.is("MemberExpression") && value.is({name: "section", property: "children"});
-          }
-          var variableDec = $ast.hasVariableDeclaration({name: "paragraphs", value: validator}) || $ast.hasAssignmentExpression({left: "paragraphs", right: validator});
-          if(variableDec) {
-            return true;
-          } else {
-            return "You didn't use the children property on the section element";
-          }
-        };
-
-        new TestCase(page, 1);
+        evaluate(first_task, page, 1)
+        
       }
     });
   }).then(function() {

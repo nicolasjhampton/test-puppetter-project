@@ -1,3 +1,3 @@
 
 const section = document.querySelector('section');
-let paragraphs = section.childen;
+let paragraphs = section.children;
